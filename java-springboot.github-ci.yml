@@ -1,14 +1,24 @@
+#Este é um workflow para automatizar o build de um projeto Maven com Java 11 sempre que uma nova versão (release) é criada.
 name: Maven Package
 
+# Esta seção especifica quando [on] o fluxo de trabalho será acionado. Qual o trigger dessa pipeline.
+# Neste caso, o workflow será executado quando uma nova versão (release) é criada no repositório.
 on:
   release:
     types: [created]
 
+# A seção "jobs" define os trabalhos (jobs) a serem executados. Neste caso, temos um trabalho chamado
+# "build" que será executado na máquina com sistema operacional Ubuntu mais recente (ubuntu-latest).
 jobs:
   build:
 
     runs-on: ubuntu-latest
 
+    # 1 - A seção "steps" lista as etapas do trabalho (job).
+    #     A primeira etapa usa a ação "actions/checkout@v3" para fazer o checkout do código do repositório.
+    #
+    # 2 - A segunda etapa configura o ambiente Java JDK 11 usando a ação "actions/setup-java@v3".
+    # 3 - A terceira etapa executa o comando "mvn -B package --file pom.xml" para fazer o build do projeto Maven com Java 11.
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK 11
@@ -18,3 +28,30 @@ jobs:
 
       - name: Build with Maven
         run: mvn -B package --file pom.xml
+      - run: echo "This job's status is ${{ job.status }}."
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    needs: maven-build  # Aguarda a conclusão do job 'maven-build' antes de executar este job
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${DOCKERHUB_USERNAME}
+          password: ${DOCKERHUB_TOKEN}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: yourdockerhubusername/yourimagename:latest
+      - run: echo "This job's status is ${{ job.status }}."
